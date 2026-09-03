@@ -1,0 +1,6 @@
+{
+  "name": "MoneyMind",
+  "description": "스마트 월급 포트폴리오 구성 및 변동비·소액 결제 소비 패턴 분석 관리 서비스",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
