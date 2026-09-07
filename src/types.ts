@@ -25,6 +25,29 @@ export interface PortfolioConfig {
   totalPercent: number;
   lastUpdated: string;
   isConfirmed: boolean;
+  budgetItems?: BudgetItem[];
+}
+
+export type BudgetGroup = 'fixed' | 'living' | 'saving' | 'investment' | 'etc';
+
+export interface BudgetItem {
+  id: string;
+  name: string;
+  group: BudgetGroup;
+  amount: number;
+  color: string;
+}
+
+export interface BudgetResult {
+  salary: number;
+  totalBudget: number;
+  remainingAmount: number;
+  totalPercent: number | null;
+  unallocatedPercent: number | null;
+  exceededPercent: number | null;
+  isOverBudget: boolean;
+  warnings: string[];
+  items: (BudgetItem & { percent: number | null; exceedsFortyPercent: boolean })[];
 }
 
 export interface Transaction {

@@ -88,7 +88,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               ₩{portfolio.salary.toLocaleString()}
             </h3>
             <p className="text-xs text-gray-500 mt-1">
-              생활비 {portfolio.categories.find(c => c.id === 'living')?.percent || 50}% • 저축 {portfolio.categories.find(c => c.id === 'saving')?.percent || 30}% • 투자 {portfolio.categories.find(c => c.id === 'investment')?.percent || 15}%
+              생활비 {(portfolio.categories.find(c => c.id === 'living')?.percent ?? 50).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}% • 저축 {(portfolio.categories.find(c => c.id === 'saving')?.percent ?? 30).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}% • 투자 {(portfolio.categories.find(c => c.id === 'investment')?.percent ?? 15).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}%
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-emerald-700 font-bold group-hover:translate-x-0.5 transition-transform">
