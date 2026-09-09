@@ -1,5 +1,5 @@
 import { useMemo, useState, useSyncExternalStore } from 'react';
-import { Building2, CalendarDays, CheckCircle2, ChevronDown, FileSpreadsheet, House, Radio, RefreshCw, ShieldCheck, Sparkles, Tv } from 'lucide-react';
+import { Building2, CalendarDays, Check, CheckCircle2, ChevronDown, CircleDollarSign, FileSpreadsheet, House, Radio, RefreshCw, ShieldCheck, Sparkles, Tv } from 'lucide-react';
 import { analyzeFixedExpenses, FixedExpense } from './analyzeFixedExpenses';
 import { getFixedExpenseCsvSnapshot, subscribeToFixedExpenseCsv } from './fixedExpenseCsvStore';
 
@@ -27,6 +27,24 @@ export const FixedExpenseView = () => {
   );
   const [category, setCategory] = useState('전체');
   const [showGuide, setShowGuide] = useState(false);
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
+
+  const selectedExpenses = analysis?.expenses.filter((expense) =>
+    selectedExpenseIds.includes(expense.id),
+  ) ?? [];
+  const selectedMonthlyTotal = selectedExpenses.reduce(
+    (sum, expense) => sum + expense.monthlyAmount,
+    0,
+  );
+  const annualSavingsPotential = selectedMonthlyTotal * 12;
+
+  const toggleReviewTarget = (expenseId: string) => {
+    setSelectedExpenseIds((current) =>
+      current.includes(expenseId)
+        ? current.filter((id) => id !== expenseId)
+        : [...current, expenseId],
+    );
+  };
 
   if (csvData.classification && csvData.classification.reviewCount > 0) {
     return (
@@ -89,6 +107,36 @@ export const FixedExpenseView = () => {
         </div>
       )}
 
+      <section className={'rounded-3xl border border-rose-200 bg-rose-50/80 p-5 sm:p-6 shadow-ambient'}>
+        <div className={'flex flex-col sm:flex-row sm:items-center gap-4'}>
+          <div className={'w-12 h-12 rounded-full bg-rose-700 text-white flex items-center justify-center shrink-0 shadow-md'}>
+            <CircleDollarSign className={'w-6 h-6'} />
+          </div>
+          <div className={'flex-1'}>
+            <div className={'flex flex-wrap items-center justify-between gap-2'}>
+              <h2 className={'text-lg font-extrabold text-rose-900'}>반복 결제 검토 리포트</h2>
+              <span className={'text-xs font-bold text-rose-800'}>
+                {selectedExpenses.length}개 선택
+              </span>
+            </div>
+            <p className={'text-sm text-rose-950/75 mt-1'}>
+              반복 결제 중 직접 검토할 항목을 선택하면 예상 금액을 계산합니다.
+            </p>
+            <div className={'mt-4 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3'}>
+              <div>
+                <p className={'text-xs font-bold text-rose-800'}>선택 항목 기준 연간 절약 가능액</p>
+                <p className={'text-2xl sm:text-3xl font-extrabold font-mono text-rose-950 mt-1'}>
+                  {won(annualSavingsPotential)}
+                </p>
+              </div>
+              <p className={'text-[11px] text-rose-800/70 sm:text-right'}>
+                최근 월 결제액 × 12개월 기준<br />해지나 절약을 권유하지 않는 단순 예상값입니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className={'grid grid-cols-1 sm:grid-cols-3 gap-4'}>
         <article className={'sm:col-span-2 rounded-3xl bg-[#031635] p-6 text-white shadow-xl relative overflow-hidden'}>
           <div className={'absolute -right-16 -top-20 w-56 h-56 rounded-full bg-emerald-400/15 blur-2xl'} />
@@ -137,7 +185,7 @@ export const FixedExpenseView = () => {
         <div className={'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5'}>
           <div>
             <h2 className={'font-bold text-lg text-[#031635]'}>감지된 고정비</h2>
-            <p className={'text-xs text-gray-500 mt-1'}>최근 결제액과 반복 주기를 기준으로 정렬했습니다.</p>
+            <p className={'text-xs text-gray-500 mt-1'}>최근 결제액과 반복 주기를 확인하고 검토할 항목을 직접 선택하세요.</p>
           </div>
           <div className={'flex gap-2 overflow-x-auto pb-1'}>
             {categories.map((item) => (
@@ -150,8 +198,19 @@ export const FixedExpenseView = () => {
         </div>
 
         <div className={'divide-y divide-gray-100'}>
-          {expenses.map((expense) => (
-            <article key={expense.id} className={'py-4 first:pt-0 last:pb-0 flex items-center gap-3 sm:gap-4'}>
+          {expenses.map((expense) => {
+            const isSelected = selectedExpenseIds.includes(expense.id);
+            return (
+            <article key={expense.id} className={`py-4 first:pt-0 last:pb-0 flex items-center gap-3 sm:gap-4 ${isSelected ? 'bg-emerald-50/60' : ''}`}>
+              <button
+                type={'button'}
+                onClick={() => toggleReviewTarget(expense.id)}
+                aria-pressed={isSelected}
+                aria-label={`${expense.merchant} 검토 대상 ${isSelected ? '해제' : '선택'}`}
+                className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${isSelected ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-gray-300 bg-white text-transparent hover:border-emerald-500'}`}
+              >
+                <Check className={'w-4 h-4'} />
+              </button>
               <div className={'w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0'}>
                 {iconFor(expense)}
               </div>
@@ -167,7 +226,8 @@ export const FixedExpenseView = () => {
                 <p className={'text-[10px] font-bold text-emerald-700 mt-1'}>일치도 {expense.confidence}%</p>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
     </div>
