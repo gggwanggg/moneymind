@@ -6,35 +6,36 @@ import {
   Upload,
   FileSpreadsheet,
   CheckCircle2,
+  Download,
+  Sparkles,
 } from 'lucide-react';
-import { ApiKeyConfig } from '../types';
 import { analyzeFixedExpenses } from '../features/fixed-expenses/analyzeFixedExpenses';
 import {
   getFixedExpenseCsvSnapshot,
-  resetFixedExpenseCsv,
+  clearFixedExpenseCsv,
+  applyAiReviews,
   setFixedExpenseCsv,
   subscribeToFixedExpenseCsv,
 } from '../features/fixed-expenses/fixedExpenseCsvStore';
+import { requestGeminiReview, reviewWithAi } from '../features/transaction-classification/aiReview';
 
 interface SettingsViewProps {
-  apiKeyConfig: ApiKeyConfig;
-  onUpdateApiKey: (config: ApiKeyConfig) => void;
+  geminiApiKey: string;
+  onUpdateGeminiApiKey: (apiKey: string) => void;
   onResetData: () => void;
-  onDisconnect: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
-  apiKeyConfig,
-  onUpdateApiKey,
+  geminiApiKey,
+  onUpdateGeminiApiKey,
   onResetData,
-  onDisconnect,
 }) => {
-  const [apiKey, setApiKey] = useState(apiKeyConfig.apiKey);
-  const [secretKey, setSecretKey] = useState(apiKeyConfig.secretKey);
+  const [apiKey, setApiKey] = useState(geminiApiKey);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [csvStatus, setCsvStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isReadingCsv, setIsReadingCsv] = useState(false);
+  const [isAiReviewing, setIsAiReviewing] = useState(false);
   const fixedExpenseCsv = useSyncExternalStore(
     subscribeToFixedExpenseCsv,
     getFixedExpenseCsvSnapshot,
@@ -43,11 +44,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateApiKey({
-      ...apiKeyConfig,
-      apiKey: apiKey.trim(),
-      secretKey: secretKey.trim(),
-    });
+    onUpdateGeminiApiKey(apiKey.trim());
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
@@ -81,10 +78,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         text = new TextDecoder('euc-kr').decode(buffer);
         analysis = analyzeFixedExpenses(text);
       }
-      setFixedExpenseCsv(text, file.name);
+      const classification = setFixedExpenseCsv(text, file.name);
       setCsvStatus({
         type: 'success',
-        message: `${analysis.analyzedTransactions}건을 읽고 고정비 ${analysis.expenses.length}개를 찾았습니다.`,
+        message: `${analysis.analyzedTransactions}건을 읽고 고정비 ${analysis.expenses.length}개를 찾았습니다. AI 검토 대기 ${classification.reviewCount}건`,
       });
     } catch (error) {
       setCsvStatus({
@@ -96,6 +93,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const handleDownloadClassifiedCsv = () => {
+    if (!fixedExpenseCsv.classification || !fixedExpenseCsv.fileName) return;
+    const blob = new Blob([fixedExpenseCsv.classification.csvText], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fixedExpenseCsv.fileName.replace(/\.csv$/iu, '') + '-classified.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleAiReview = async () => {
+    const classification = fixedExpenseCsv.classification;
+    if (!classification || classification.reviewCount === 0) return;
+    if (!geminiApiKey) {
+      setCsvStatus({ type: 'error', message: '위에서 Gemini API 키를 먼저 입력하고 적용해주세요.' });
+      return;
+    }
+    setIsAiReviewing(true);
+    setCsvStatus(null);
+    try {
+      const reviews = await reviewWithAi(
+        classification.rows,
+        (items) => requestGeminiReview(items, geminiApiKey),
+      );
+      const updated = applyAiReviews(reviews);
+      setCsvStatus({
+        type: 'success',
+        message: `AI가 ${reviews.length}건을 검토했습니다. 남은 검토 항목은 ${updated.reviewCount}건입니다.`,
+      });
+    } catch (error) {
+      setCsvStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'AI 검토 요청에 실패했습니다.',
+      });
+    } finally {
+      setIsAiReviewing(false);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto w-full px-4 py-6 sm:py-8 space-y-6 pb-28 md:pb-12">
       {/* Title */}
@@ -104,7 +141,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           설정 및 API 관리
         </h1>
         <p className="text-sm text-[#44474E]">
-          은행 연동 API 키 관리 및 데이터 설정
+          Gemini AI 검토 설정 및 CSV 데이터 관리
         </p>
       </div>
 
@@ -116,38 +153,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-[#031635] text-base">API 연동 정보</h3>
-              <p className="text-xs text-emerald-600 font-semibold">
-                ● 정상 연동 중 ({apiKeyConfig.bankName || '마이데이터'})
+              <h3 className="font-bold text-[#031635] text-base">Gemini API 설정</h3>
+              <p className={`text-xs font-semibold ${geminiApiKey ? 'text-emerald-600' : 'text-gray-500'}`}>
+                {geminiApiKey ? '● AI Studio API 키 입력됨' : 'API 키를 입력하면 AI 검토를 사용할 수 있습니다.'}
               </p>
             </div>
           </div>
           <button
             type="button"
-            onClick={onDisconnect}
+            onClick={() => {
+              setApiKey('');
+              onUpdateGeminiApiKey('');
+              setSaveSuccess(false);
+            }}
             className="text-xs text-red-600 font-semibold hover:underline cursor-pointer"
           >
-            연동 해제
+            키 지우기
           </button>
         </div>
 
         <form onSubmit={handleSave} className="space-y-3 pt-2">
           <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-600">API KEY</label>
-            <input
-              type="text"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="w-full p-3 bg-[#F8F9FB] border border-[#E1E2E4] rounded-xl text-xs sm:text-sm font-mono focus:ring-2 focus:ring-[#031635] outline-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-600">SECRET KEY</label>
+            <label className="text-xs font-bold text-gray-600">GEMINI API KEY</label>
             <input
               type="password"
-              value={secretKey}
-              onChange={(e) => setSecretKey(e.target.value)}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
               className="w-full p-3 bg-[#F8F9FB] border border-[#E1E2E4] rounded-xl text-xs sm:text-sm font-mono focus:ring-2 focus:ring-[#031635] outline-none"
             />
           </div>
@@ -156,12 +187,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             type="submit"
             className="w-full py-3 bg-[#031635] hover:bg-[#1A2B4B] text-white font-bold text-sm rounded-xl transition-colors cursor-pointer"
           >
-            API 키 변경사항 저장
+            Gemini API 키 적용
           </button>
 
           {saveSuccess && (
             <p className="text-center text-xs text-emerald-600 font-semibold animate-in fade-in">
-              ✓ API 키 정보가 성공적으로 업데이트되었습니다.
+              ✓ 이 브라우저 메모리에 API 키를 적용했습니다.
             </p>
           )}
         </form>
@@ -180,7 +211,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
           <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${fixedExpenseCsv.source === 'uploaded' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-            {fixedExpenseCsv.source === 'uploaded' ? '업로드됨' : '샘플 사용 중'}
+            {fixedExpenseCsv.source === 'uploaded' ? '업로드됨' : '파일 없음'}
           </span>
         </div>
 
@@ -194,12 +225,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className={'flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FB]'}>
           <div className={'min-w-0'}>
             <p className={'text-[10px] text-gray-400 font-bold'}>현재 분석 파일</p>
-            <p className={'text-xs font-semibold text-gray-700 truncate mt-0.5'}>{fixedExpenseCsv.fileName}</p>
+            <p className={'text-xs font-semibold text-gray-700 truncate mt-0.5'}>{fixedExpenseCsv.fileName ?? '업로드된 파일이 없습니다'}</p>
           </div>
           {fixedExpenseCsv.source === 'uploaded' && (
-            <button type={'button'} onClick={() => { resetFixedExpenseCsv(); setCsvStatus(null); }}
+            <button type={'button'} onClick={() => { clearFixedExpenseCsv(); setCsvStatus(null); }}
               className={'text-xs font-bold text-gray-500 hover:text-[#031635] flex items-center gap-1 cursor-pointer shrink-0'}>
-              <RotateCcw className={'w-3.5 h-3.5'} /> 샘플 복원
+              <RotateCcw className={'w-3.5 h-3.5'} /> 업로드 지우기
             </button>
           )}
         </div>
@@ -212,8 +243,58 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
 
+        {fixedExpenseCsv.classification && (
+          <>
+          <div className={'grid grid-cols-3 gap-2'}>
+          <div className={'rounded-xl bg-gray-50 px-3 py-2 text-center'}>
+            <p className={'text-lg font-extrabold text-[#031635]'}>{fixedExpenseCsv.classification.fixedCount}</p>
+            <p className={'text-[10px] text-gray-500'}>고정비 행</p>
+          </div>
+          <div className={'rounded-xl bg-gray-50 px-3 py-2 text-center'}>
+            <p className={'text-lg font-extrabold text-[#031635]'}>{fixedExpenseCsv.classification.microCount}</p>
+            <p className={'text-[10px] text-gray-500'}>소액결제 행</p>
+          </div>
+          <div className={'rounded-xl bg-amber-50 px-3 py-2 text-center'}>
+            <p className={'text-lg font-extrabold text-amber-800'}>{fixedExpenseCsv.classification.reviewCount}</p>
+            <p className={'text-[10px] text-amber-700'}>AI 검토 대기</p>
+          </div>
+          </div>
+
+          {fixedExpenseCsv.classification.reviewCount > 0 && (
+            <button
+              type={'button'}
+              onClick={handleAiReview}
+              disabled={isAiReviewing || !geminiApiKey}
+              className={'w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer disabled:cursor-wait flex items-center justify-center gap-2'}
+            >
+              <Sparkles className={'w-4 h-4'} />
+              {isAiReviewing
+                ? 'AI가 검토하고 있습니다...'
+                : !geminiApiKey
+                  ? 'Gemini API 키를 먼저 입력해주세요'
+                  : `AI로 검토하기 (${fixedExpenseCsv.classification.reviewCount}건)`}
+            </button>
+          )}
+          <p className="text-[11px] text-gray-400 leading-relaxed">
+            키는 localStorage에 저장되지 않으며 새로고침하면 사라집니다. AI 검토 때 로컬 API 서버로만 전달됩니다.
+          </p>
+
+          <button
+            type={'button'}
+            onClick={handleDownloadClassifiedCsv}
+            disabled={fixedExpenseCsv.classification.reviewCount > 0 || isAiReviewing}
+            className={'w-full py-3 bg-[#031635] hover:bg-[#1A2B4B] disabled:bg-gray-300 text-white font-bold text-sm rounded-xl transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2'}
+          >
+            <Download className={'w-4 h-4'} />
+            {fixedExpenseCsv.classification.reviewCount > 0
+              ? 'AI 검토 완료 후 다운로드할 수 있습니다'
+              : '최종 분류 결과 CSV 다운로드'}
+          </button>
+          </>
+        )}
+
         <p className={'text-[11px] text-gray-400 leading-relaxed'}>
-          원본 파일은 서버로 전송하거나 영구 저장하지 않습니다. 새로고침하면 개발용 샘플 CSV로 돌아갑니다.
+          원본 파일은 수정하지 않습니다. 규칙으로 분류한 별도 파일을 생성하며, 판단이 어려운 항목만 Gemini API의 검토 대상으로 전달합니다.
         </p>
       </section>
 

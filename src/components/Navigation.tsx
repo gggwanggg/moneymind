@@ -57,7 +57,7 @@ export const DesktopSidebar: React.FC<NavigationProps> = ({
     { id: 'spending', label: '소비 지출 분석', icon: <PieChart className="w-5 h-5" />, desc: '카테고리별 파이차트' },
     { id: 'fixed', label: '고정비 지출', icon: <Repeat2 className="w-5 h-5" />, desc: '월별 반복 지출 분석' },
     { id: 'micro', label: '소액 결제 리포트', icon: <Sparkles className="w-5 h-5" />, desc: '쿠팡/다이소 패턴 & 한도' },
-    { id: 'settings', label: '설정 및 API', icon: <Settings className="w-5 h-5" />, desc: '연동 키 및 데이터 관리' },
+    { id: 'settings', label: '설정 및 API', icon: <Settings className="w-5 h-5" />, desc: 'Gemini 키 및 데이터 관리' },
   ];
 
   return (

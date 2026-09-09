@@ -3,6 +3,8 @@ export interface BankTransaction {
   merchant: string;
   memo: string;
   amount: number;
+  classifiedCategory?: string;
+  classifiedConfidence?: number;
 }
 
 export interface FixedExpense {
@@ -60,18 +62,32 @@ export const analyzeFixedExpenses = (csvText: string): FixedExpenseAnalysis => {
 
   const headers = lines[headerIndex].split(',').map((cell) => cell.trim());
   const column = (name: string) => headers.indexOf(name);
+  const usesFinalClassification = column('고정비여부') >= 0
+    && column('분류카테고리') >= 0
+    && column('분류신뢰도') >= 0;
   const transactions: BankTransaction[] = lines.slice(headerIndex + 1).flatMap((line) => {
     const cells = line.split(',').map((cell) => cell.trim());
-    const date = new Date(cells[column('거래일시')]?.replace(' ', 'T'));
+    const dateText = cells[column('거래일시')]?.replaceAll('.', '-').replace(' ', 'T');
+    const date = new Date(dateText);
     const amount = Number(cells[column('출금액')] || 0);
     const merchant = cells[column('보낸분/받는분')] || cells[column('적요')];
     if (!merchant || !amount || Number.isNaN(date.getTime())) return [];
-    return [{ date, merchant: normalizeMerchant(merchant), memo: cells[column('송금메모')] || '', amount }];
+    if (usesFinalClassification && cells[column('고정비여부')] !== 'Y') return [];
+    return [{
+      date,
+      merchant: normalizeMerchant(merchant),
+      memo: cells[column('송금메모')] || '',
+      amount,
+      classifiedCategory: usesFinalClassification ? cells[column('분류카테고리')] : undefined,
+      classifiedConfidence: usesFinalClassification
+        ? Number(cells[column('분류신뢰도')])
+        : undefined,
+    }];
   });
 
   const groups = new Map<string, BankTransaction[]>();
   transactions.forEach((item) => {
-    const category = getCategory(item.merchant, item.memo);
+    const category = item.classifiedCategory || getCategory(item.merchant, item.memo);
     if (!category) return;
     const key = `${category}:${item.merchant}`;
     groups.set(key, [...(groups.get(key) ?? []), item]);
@@ -102,12 +118,13 @@ export const analyzeFixedExpenses = (csvText: string): FixedExpenseAnalysis => {
     return [{
       id,
       merchant: latest.merchant,
-      category: getCategory(latest.merchant, latest.memo) ?? '기타',
+      category: latest.classifiedCategory || getCategory(latest.merchant, latest.memo) || '기타',
       monthlyAmount: latest.amount,
       averageAmount: Math.round(averageAmount),
       paymentDay: Math.round(average(representatives.map((item) => item.date.getDate()))),
       activeMonths: byMonth.size,
-      confidence: Math.max(70, Math.min(99, Math.round(100 - deviation * 100))),
+      confidence: latest.classifiedConfidence
+        ?? Math.max(70, Math.min(99, Math.round(100 - deviation * 100))),
     }];
   }).sort((a, b) => b.monthlyAmount - a.monthlyAmount);
 

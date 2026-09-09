@@ -1,5 +1,5 @@
 import { useMemo, useState, useSyncExternalStore } from 'react';
-import { Building2, CalendarDays, CheckCircle2, ChevronDown, FileSpreadsheet, House, Radio, RefreshCw, ShieldCheck, Tv } from 'lucide-react';
+import { Building2, CalendarDays, CheckCircle2, ChevronDown, FileSpreadsheet, House, Radio, RefreshCw, ShieldCheck, Sparkles, Tv } from 'lucide-react';
 import { analyzeFixedExpenses, FixedExpense } from './analyzeFixedExpenses';
 import { getFixedExpenseCsvSnapshot, subscribeToFixedExpenseCsv } from './fixedExpenseCsvStore';
 
@@ -19,9 +19,47 @@ export const FixedExpenseView = () => {
     getFixedExpenseCsvSnapshot,
     getFixedExpenseCsvSnapshot,
   );
-  const analysis = useMemo(() => analyzeFixedExpenses(csvData.csvText), [csvData.csvText]);
+  const analysis = useMemo(
+    () => csvData.classification?.reviewCount === 0
+      ? analyzeFixedExpenses(csvData.classification.csvText)
+      : null,
+    [csvData.classification],
+  );
   const [category, setCategory] = useState('전체');
   const [showGuide, setShowGuide] = useState(false);
+
+  if (csvData.classification && csvData.classification.reviewCount > 0) {
+    return (
+      <div className={'max-w-5xl mx-auto w-full px-4 py-6 sm:py-8 pb-28 md:pb-12'}>
+        <h1 className={'text-2xl sm:text-3xl font-extrabold text-[#031635] tracking-tight'}>고정비 지출</h1>
+        <p className={'text-sm text-[#44474E] mt-1'}>최종 분류 결과를 기준으로 고정비를 분석합니다.</p>
+        <div className={'mt-6 rounded-3xl bg-white border border-amber-100 p-8 sm:p-12 shadow-ambient text-center'}>
+          <Sparkles className={'w-8 h-8 mx-auto text-amber-600'} />
+          <h2 className={'font-extrabold text-lg text-[#031635] mt-4'}>AI 검토가 필요합니다</h2>
+          <p className={'text-sm text-gray-500 mt-2'}>
+            설정 및 API 페이지에서 {csvData.classification.reviewCount}건의 AI 검토를 완료하면 고정비 결과가 표시됩니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!analysis) {
+    return (
+      <div className={'max-w-5xl mx-auto w-full px-4 py-6 sm:py-8 pb-28 md:pb-12'}>
+        <h1 className={'text-2xl sm:text-3xl font-extrabold text-[#031635] tracking-tight'}>고정비 지출</h1>
+        <p className={'text-sm text-[#44474E] mt-1'}>업로드한 거래내역에서 반복되는 지출을 분석합니다.</p>
+        <div className={'mt-6 rounded-3xl bg-white border border-gray-100 p-8 sm:p-12 shadow-ambient text-center'}>
+          <div className={'w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto'}>
+            <FileSpreadsheet className={'w-7 h-7'} />
+          </div>
+          <h2 className={'font-extrabold text-lg text-[#031635] mt-4'}>분석할 CSV가 없습니다</h2>
+          <p className={'text-sm text-gray-500 mt-2'}>설정 및 API 페이지에서 은행 거래내역 CSV를 먼저 업로드하세요.</p>
+        </div>
+      </div>
+    );
+  }
+
   const categories = ['전체', ...new Set(analysis.expenses.map((item) => item.category))];
   const expenses = category === '전체'
     ? analysis.expenses

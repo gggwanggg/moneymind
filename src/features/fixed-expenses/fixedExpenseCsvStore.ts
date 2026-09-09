@@ -1,15 +1,21 @@
-import defaultCsvText from '../../data/data-set.csv?raw';
+import {
+  AiClassificationOverride,
+  classifyTransactionCsv,
+  ClassificationResult,
+} from '../transaction-classification/classifyTransactionCsv';
 
 export interface FixedExpenseCsvSnapshot {
-  csvText: string;
-  fileName: string;
-  source: 'sample' | 'uploaded';
+  csvText: string | null;
+  fileName: string | null;
+  source: 'empty' | 'uploaded';
+  classification: ClassificationResult | null;
 }
 
 const defaultSnapshot: FixedExpenseCsvSnapshot = {
-  csvText: defaultCsvText,
-  fileName: 'data-set.csv',
-  source: 'sample',
+  csvText: null,
+  fileName: null,
+  source: 'empty',
+  classification: null,
 };
 
 let snapshot = defaultSnapshot;
@@ -25,11 +31,21 @@ export const subscribeToFixedExpenseCsv = (listener: () => void) => {
 const emitChange = () => listeners.forEach((listener) => listener());
 
 export const setFixedExpenseCsv = (csvText: string, fileName: string) => {
-  snapshot = { csvText, fileName, source: 'uploaded' };
+  const classification = classifyTransactionCsv(csvText);
+  snapshot = { csvText, fileName, source: 'uploaded', classification };
   emitChange();
+  return classification;
 };
 
-export const resetFixedExpenseCsv = () => {
+export const applyAiReviews = (reviews: AiClassificationOverride[]) => {
+  if (!snapshot.csvText) throw new Error('먼저 CSV 파일을 업로드해주세요.');
+  const classification = classifyTransactionCsv(snapshot.csvText, reviews);
+  snapshot = { ...snapshot, classification };
+  emitChange();
+  return classification;
+};
+
+export const clearFixedExpenseCsv = () => {
   snapshot = defaultSnapshot;
   emitChange();
 };
