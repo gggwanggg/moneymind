@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Wallet, CreditCard, Sparkles, Settings, PieChart } from 'lucide-react';
+import { Home, Wallet, Sparkles, Settings, PieChart, Repeat2 } from 'lucide-react';
 import { NavTab } from '../types';
 
 interface NavigationProps {
@@ -15,6 +15,7 @@ export const BottomNavigation: React.FC<NavigationProps> = ({
     { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
     { id: 'portfolio', label: 'Portfolio', icon: <Wallet className="w-5 h-5" /> },
     { id: 'spending', label: 'Spending', icon: <PieChart className="w-5 h-5" /> },
+    { id: 'fixed', label: 'Fixed', icon: <Repeat2 className="w-5 h-5" /> },
     { id: 'micro', label: 'Pattern', icon: <Sparkles className="w-5 h-5" /> },
     { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
   ];
@@ -54,8 +55,9 @@ export const DesktopSidebar: React.FC<NavigationProps> = ({
     { id: 'home', label: '홈 대시보드', icon: <Home className="w-5 h-5" />, desc: '자산 및 소비 요약' },
     { id: 'portfolio', label: '포트폴리오 구성', icon: <Wallet className="w-5 h-5" />, desc: '월급 배분 및 목표 %' },
     { id: 'spending', label: '소비 지출 분석', icon: <PieChart className="w-5 h-5" />, desc: '카테고리별 파이차트' },
+    { id: 'fixed', label: '고정비 지출', icon: <Repeat2 className="w-5 h-5" />, desc: '월별 반복 지출 분석' },
     { id: 'micro', label: '소액 결제 리포트', icon: <Sparkles className="w-5 h-5" />, desc: '쿠팡/다이소 패턴 & 한도' },
-    { id: 'settings', label: '설정 및 API', icon: <Settings className="w-5 h-5" />, desc: '연동 키 및 데이터 관리' },
+    { id: 'settings', label: '설정 및 API', icon: <Settings className="w-5 h-5" />, desc: 'Gemini 키 및 데이터 관리' },
   ];
 
   return (

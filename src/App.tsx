@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ApiKeyGate } from './components/ApiKeyGate';
 import { Header } from './components/Header';
 import { HomeView } from './components/HomeView';
 import { PortfolioView } from './components/PortfolioView';
 import { SpendingView } from './components/SpendingView';
 import { MicroSpendingView } from './components/MicroSpendingView';
+import { FixedExpenseView } from './features/fixed-expenses/FixedExpenseView';
 import { SettingsView } from './components/SettingsView';
 import { BottomNavigation, DesktopSidebar } from './components/Navigation';
 import { TransactionUploadModal } from './components/TransactionUploadModal';
 import { 
-  ApiKeyConfig, 
   PortfolioConfig, 
   Transaction, 
   MicroSpendingLimit, 
@@ -31,13 +30,8 @@ const STORAGE_KEYS = {
 };
 
 export default function App() {
-  // Load state from local storage or initial constants
-  // Keep credentials in memory only until a secure backend is connected.
-  const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfig>({
-    apiKey: '',
-    secretKey: '',
-    isConnected: false,
-  });
+  // Gemini credentials remain in memory and disappear on refresh.
+  const [geminiApiKey, setGeminiApiKey] = useState('');
 
   const [portfolio, setPortfolio] = useState<PortfolioConfig>(() => {
     try {
@@ -101,14 +95,6 @@ export default function App() {
   }, [merchantPatterns]);
 
   // Handlers
-  const handleApiConnect = (config: ApiKeyConfig) => {
-    setApiKeyConfig(config);
-  };
-
-  const handleApiDisconnect = () => {
-    setApiKeyConfig({ apiKey: '', secretKey: '', isConnected: false });
-  };
-
   const handleSavePortfolio = (newPortfolio: PortfolioConfig) => {
     setPortfolio(newPortfolio);
   };
@@ -185,23 +171,13 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEYS.MERCHANT_PATTERNS);
   };
 
-  // If user has not connected API key, show the API Key gate as requested
-  if (!apiKeyConfig.isConnected) {
-    return (
-      <ApiKeyGate
-        onConnect={handleApiConnect}
-        initialConfig={apiKeyConfig}
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#F8F9FB] text-[#191C1E] flex flex-col antialiased selection:bg-[#10B981] selection:text-white">
       {/* Top Header */}
       <Header
         currentTab={currentTab}
         onTabChange={setCurrentTab}
-        isApiConnected={apiKeyConfig.isConnected}
+        isApiConnected={Boolean(geminiApiKey)}
       />
 
       <div className="flex flex-1 relative">
@@ -248,12 +224,13 @@ export default function App() {
             />
           )}
 
+          {currentTab === 'fixed' && <FixedExpenseView />}
+
           {currentTab === 'settings' && (
             <SettingsView
-              apiKeyConfig={apiKeyConfig}
-              onUpdateApiKey={setApiKeyConfig}
+              geminiApiKey={geminiApiKey}
+              onUpdateGeminiApiKey={setGeminiApiKey}
               onResetData={handleResetData}
-              onDisconnect={handleApiDisconnect}
             />
           )}
         </main>

@@ -60,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
               {isApiConnected && (
                 <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded-full">
                   <ShieldCheck className="w-3 h-3" />
-                  연동됨
+                  AI 연결됨
                 </span>
               )}
             </div>

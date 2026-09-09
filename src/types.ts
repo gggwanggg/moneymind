@@ -1,12 +1,4 @@
-export type NavTab = 'home' | 'portfolio' | 'spending' | 'micro' | 'settings';
-
-export interface ApiKeyConfig {
-  apiKey: string;
-  secretKey: string;
-  isConnected: boolean;
-  connectedAt?: string;
-  bankName?: string;
-}
+export type NavTab = 'home' | 'portfolio' | 'spending' | 'fixed' | 'micro' | 'settings';
 
 export interface PortfolioCategory {
   id: string;
