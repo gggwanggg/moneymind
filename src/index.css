@@ -57,3 +57,15 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 4px 24px 0 rgba(3, 22, 53, 0.06);
 }
 
+input.budget-slider::-webkit-slider-thumb {
+  background: var(--budget-color);
+  border: 3px solid white;
+  box-shadow: 0 1px 5px rgb(15 23 42 / 20%);
+}
+
+input.budget-slider::-moz-range-thumb {
+  background: var(--budget-color);
+  border: 3px solid white;
+  box-sizing: border-box;
+}
+

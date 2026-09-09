@@ -45,7 +45,7 @@ export function analyzeSpendingAgainstPortfolio(
   const livingBudget = livingCategory ? (portfolio.salary * livingCategory.percent) / 100 : 1500000;
   
   // Approximate variable food / shopping budget allowance (e.g. food is ~30% of living budget)
-  const foodBudget = livingBudget * 0.35;
+  const foodBudget = portfolio.budgetItems?.find((item) => item.id === 'food')?.amount ?? livingBudget * 0.35;
   const foodSpent = categorySpend['식비'];
   const foodRatio = Math.round((foodSpent / (foodBudget || 1)) * 100);
 
