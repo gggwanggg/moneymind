@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { 
-  KeyRound, 
   ShieldCheck, 
   RotateCcw, 
   Lock, 
-  Check, 
-  Download, 
-  Sparkles,
-  ExternalLink,
-  Trash2
+  Upload,
+  FileSpreadsheet,
+  CheckCircle2,
 } from 'lucide-react';
 import { ApiKeyConfig } from '../types';
+import { analyzeFixedExpenses } from '../features/fixed-expenses/analyzeFixedExpenses';
+import {
+  getFixedExpenseCsvSnapshot,
+  resetFixedExpenseCsv,
+  setFixedExpenseCsv,
+  subscribeToFixedExpenseCsv,
+} from '../features/fixed-expenses/fixedExpenseCsvStore';
 
 interface SettingsViewProps {
   apiKeyConfig: ApiKeyConfig;
@@ -29,6 +33,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [secretKey, setSecretKey] = useState(apiKeyConfig.secretKey);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [resetConfirm, setResetConfirm] = useState(false);
+  const [csvStatus, setCsvStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isReadingCsv, setIsReadingCsv] = useState(false);
+  const fixedExpenseCsv = useSyncExternalStore(
+    subscribeToFixedExpenseCsv,
+    getFixedExpenseCsvSnapshot,
+    getFixedExpenseCsvSnapshot,
+  );
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +55,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleExecuteReset = () => {
     onResetData();
     setResetConfirm(false);
+  };
+
+  const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setCsvStatus({ type: 'error', message: 'CSV 파일만 선택할 수 있습니다.' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCsvStatus({ type: 'error', message: '파일 크기는 5MB 이하여야 합니다.' });
+      return;
+    }
+
+    setIsReadingCsv(true);
+    try {
+      const buffer = await file.arrayBuffer();
+      let text = new TextDecoder('utf-8').decode(buffer);
+      let analysis;
+      try {
+        analysis = analyzeFixedExpenses(text);
+      } catch {
+        text = new TextDecoder('euc-kr').decode(buffer);
+        analysis = analyzeFixedExpenses(text);
+      }
+      setFixedExpenseCsv(text, file.name);
+      setCsvStatus({
+        type: 'success',
+        message: `${analysis.analyzedTransactions}건을 읽고 고정비 ${analysis.expenses.length}개를 찾았습니다.`,
+      });
+    } catch (error) {
+      setCsvStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'CSV 파일을 읽지 못했습니다.',
+      });
+    } finally {
+      setIsReadingCsv(false);
+    }
   };
 
   return (
@@ -115,6 +165,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </p>
           )}
         </form>
+      </section>
+
+      {/* Fixed expense CSV upload */}
+      <section className={'bg-white rounded-3xl p-5 sm:p-6 shadow-ambient border border-gray-100/90 space-y-4'}>
+        <div className={'flex items-start justify-between gap-4'}>
+          <div className={'flex items-center gap-2.5'}>
+            <div className={'w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 shrink-0'}>
+              <FileSpreadsheet className={'w-5 h-5'} />
+            </div>
+            <div>
+              <h3 className={'font-bold text-[#031635] text-base'}>고정비 CSV 불러오기</h3>
+              <p className={'text-xs text-gray-500 mt-0.5'}>은행 거래내역을 브라우저에서만 분석합니다.</p>
+            </div>
+          </div>
+          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${fixedExpenseCsv.source === 'uploaded' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+            {fixedExpenseCsv.source === 'uploaded' ? '업로드됨' : '샘플 사용 중'}
+          </span>
+        </div>
+
+        <label className={'block border-2 border-dashed border-gray-200 hover:border-emerald-400 rounded-2xl p-5 text-center bg-gray-50/60 hover:bg-emerald-50/40 transition-colors cursor-pointer'}>
+          <input type={'file'} accept={'.csv,text/csv'} onChange={handleCsvUpload} className={'hidden'} />
+          <Upload className={'w-7 h-7 mx-auto text-emerald-600 mb-2'} />
+          <p className={'text-sm font-bold text-[#031635]'}>CSV 파일 선택</p>
+          <p className={'text-xs text-gray-500 mt-1'}>UTF-8 또는 EUC-KR · 최대 5MB</p>
+        </label>
+
+        <div className={'flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FB]'}>
+          <div className={'min-w-0'}>
+            <p className={'text-[10px] text-gray-400 font-bold'}>현재 분석 파일</p>
+            <p className={'text-xs font-semibold text-gray-700 truncate mt-0.5'}>{fixedExpenseCsv.fileName}</p>
+          </div>
+          {fixedExpenseCsv.source === 'uploaded' && (
+            <button type={'button'} onClick={() => { resetFixedExpenseCsv(); setCsvStatus(null); }}
+              className={'text-xs font-bold text-gray-500 hover:text-[#031635] flex items-center gap-1 cursor-pointer shrink-0'}>
+              <RotateCcw className={'w-3.5 h-3.5'} /> 샘플 복원
+            </button>
+          )}
+        </div>
+
+        {isReadingCsv && <p className={'text-xs text-center text-gray-500'}>CSV 파일을 분석하고 있습니다...</p>}
+        {csvStatus && (
+          <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs ${csvStatus.type === 'success' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}>
+            {csvStatus.type === 'success' && <CheckCircle2 className={'w-4 h-4 shrink-0 mt-0.5'} />}
+            <span>{csvStatus.message}</span>
+          </div>
+        )}
+
+        <p className={'text-[11px] text-gray-400 leading-relaxed'}>
+          원본 파일은 서버로 전송하거나 영구 저장하지 않습니다. 새로고침하면 개발용 샘플 CSV로 돌아갑니다.
+        </p>
       </section>
 
       {/* Data Management Card */}

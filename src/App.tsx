@@ -5,6 +5,7 @@ import { HomeView } from './components/HomeView';
 import { PortfolioView } from './components/PortfolioView';
 import { SpendingView } from './components/SpendingView';
 import { MicroSpendingView } from './components/MicroSpendingView';
+import { FixedExpenseView } from './features/fixed-expenses/FixedExpenseView';
 import { SettingsView } from './components/SettingsView';
 import { BottomNavigation, DesktopSidebar } from './components/Navigation';
 import { TransactionUploadModal } from './components/TransactionUploadModal';
@@ -247,6 +248,8 @@ export default function App() {
               onAddTransaction={(tx) => handleAddTransactions([tx])}
             />
           )}
+
+          {currentTab === 'fixed' && <FixedExpenseView />}
 
           {currentTab === 'settings' && (
             <SettingsView

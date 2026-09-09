@@ -1,4 +1,4 @@
-export type NavTab = 'home' | 'portfolio' | 'spending' | 'micro' | 'settings';
+export type NavTab = 'home' | 'portfolio' | 'spending' | 'fixed' | 'micro' | 'settings';
 
 export interface ApiKeyConfig {
   apiKey: string;
